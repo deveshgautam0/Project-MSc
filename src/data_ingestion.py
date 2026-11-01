@@ -98,3 +98,52 @@ def fetch_pubchem():
     if rows:
         df = pd.DataFrame(rows, columns=ALL_COLS)
     return df
+
+
+def main() -> None:
+    """CLI entry: python -m src.data_ingestion
+
+    Fetches from available open sources and saves
+    data/processed/ingested.csv (empty if no sources reachable / no API key).
+    """
+    from pathlib import Path  # noqa: PLC0415
+
+    out_dir = Path("data/processed")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "ingested.csv"
+
+    frames: list[pd.DataFrame] = []
+
+    # PoLyInfo / Polymer Genome / PubChem
+    try:
+        df_pli = fetch_polynims()
+        if not df_pli.empty:
+            frames.append(df_pli)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] PoLyInfo fetch failed: {exc}")
+
+    try:
+        df_pg = fetch_polymergenome()
+        if not df_pg.empty:
+            frames.append(df_pg)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] Polymer Genome fetch failed: {exc}")
+
+    try:
+        df_pub = fetch_pubchem()
+        if not df_pub.empty:
+            frames.append(df_pub)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] PubChem fetch failed: {exc}")
+
+    if frames:
+        ingested = pd.concat(frames, ignore_index=True)
+    else:
+        ingested = pd.DataFrame(columns=ALL_COLS)
+
+    ingested.to_csv(out_path, index=False)
+    print(f"Ingested {len(ingested)} rows -> {out_path}")
+
+
+if __name__ == "__main__":
+    main()

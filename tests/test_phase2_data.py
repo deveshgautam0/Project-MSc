@@ -26,9 +26,9 @@ def test_seed_has_required_columns():
     assert len(df) >= 15
 
 
-def test_seed_source_is_seed_example():
+def test_seed_source_is_literature():
     df = clean.load_seed()
-    assert (df["source"] == "seed_example").all()
+    assert (df["source"] == "literature").all(), "seed data should be source=literature"
 
 
 def test_synthetic_generation_shape_and_columns():

@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 
 STEPS = [
+    ("Phase 1b: data_ingestion (optional live sources)", "src.data_ingestion"),
     ("Phase 2: data_gen", "src.data_gen"),
     ("Phase 2: clean", "src.clean"),
     ("Phase 3: kg_build", "src.kg_build"),

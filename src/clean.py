@@ -1,7 +1,12 @@
 """Data cleaning + merging (Phase 2).
 
-Merges data/raw/seed_data.csv (seed_example) with data/processed/synthetic.csv
-(synthetic), drops duplicates, validates every row via config.validate_formulation,
+Merges:
+  - data/raw/seed_data.csv            (seed_example / literature)
+  - data/raw/user_data.csv            (user-submitted feedback, source="user")
+  - data/processed/synthetic.csv      (synthetic, from src.data_gen)
+  - data/processed/ingested.csv       (live open-source ingestion, from src.data_ingestion)
+
+Drops duplicates, validates every row via config.validate_formulation,
 logs (does not silently impute) removed rows, and writes:
 
   - data/processed/dataset.csv        (merged, validated)
@@ -22,31 +27,42 @@ from config import (  # noqa: E402
 )
 
 SEED_PATH = Path("data/raw/seed_data.csv")
+USER_PATH = Path("data/raw/user_data.csv")
 SYNTHETIC_PATH = Path("data/processed/synthetic.csv")
+INGESTED_PATH = Path("data/processed/ingested.csv")
 OUT_PATH = Path("data/processed/dataset.csv")
 REPORT_PATH = Path("reports/data_report.md")
 
 ALL_COLUMNS = INPUT_FEATURES + list(TARGET_PROPERTIES.keys()) + ["source", "reference"]
 
 
+def _load(path: Path, label: str) -> pd.DataFrame:
+    if not path.exists():
+        print(f"  [INFO] {label} file not found: {path} (skipping)")
+        return pd.DataFrame(columns=ALL_COLUMNS)
+    df = pd.read_csv(path)
+    missing = [c for c in ALL_COLUMNS if c not in df.columns]
+    if missing:
+        raise ValueError(f"{path} missing columns: {missing}")
+    return df[ALL_COLUMNS]
+
+
 def load_seed() -> pd.DataFrame:
     if not SEED_PATH.exists():
         raise FileNotFoundError(f"Missing seed file: {SEED_PATH}")
-    df = pd.read_csv(SEED_PATH)
-    missing = [c for c in ALL_COLUMNS if c not in df.columns]
-    if missing:
-        raise ValueError(f"seed_data.csv missing columns: {missing}")
-    return df[ALL_COLUMNS]
+    return _load(SEED_PATH, "seed")
+
+
+def load_user() -> pd.DataFrame:
+    return _load(USER_PATH, "user feedback")
 
 
 def load_synthetic() -> pd.DataFrame:
-    if not SYNTHETIC_PATH.exists():
-        raise FileNotFoundError(f"Missing synthetic file: {SYNTHETIC_PATH} (run src.data_gen first)")
-    df = pd.read_csv(SYNTHETIC_PATH)
-    missing = [c for c in ALL_COLUMNS if c not in df.columns]
-    if missing:
-        raise ValueError(f"synthetic.csv missing columns: {missing}")
-    return df[ALL_COLUMNS]
+    return _load(SYNTHETIC_PATH, "synthetic")
+
+
+def load_ingested() -> pd.DataFrame:
+    return _load(INGESTED_PATH, "live ingestion")
 
 
 def validate_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -121,9 +137,15 @@ def main() -> None:
     Path("reports").mkdir(parents=True, exist_ok=True)
 
     seed_df = load_seed()
+    user_df = load_user()
     synth_df = load_synthetic()
+    ingested_df = load_ingested()
 
-    merged = pd.concat([seed_df, synth_df], ignore_index=True)
+    frames = [f for f in (seed_df, user_df, synth_df, ingested_df) if not f.empty]
+    if not frames:
+        raise FileNotFoundError("No data sources found (seed, user, synthetic, or ingested).")
+
+    merged = pd.concat(frames, ignore_index=True)
     before = len(merged)
 
     # Drop exact duplicates on all feature+target columns (keep source/reference for audit)
