@@ -1,0 +1,15 @@
+# (d) Top 10 lowest GWP composites
+PREFIX nc: <http://example.org/nanocomposite#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?sample ?matrix ?gwp WHERE {
+    ?sample a nc:Nanocomposite ;
+            nc:hasMatrix ?matrix ;
+            nc:hasProperty ?gwpNode .
+    ?gwpNode a nc:SustainabilityMetric ;
+             nc:hasValue ?gwp ;
+             nc:hasUnit "kgCO2e/kg" .
+}
+ORDER BY ASC(?gwp)
+LIMIT 10

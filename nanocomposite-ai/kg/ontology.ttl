@@ -1,0 +1,359 @@
+@prefix nc: <http://example.org/nanocomposite#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix emmo: <http://emmo.info/emmo#> .
+@prefix envo: <http://purl.obolibrary.org/obo/ENVO_> .
+@prefix chmo: <http://purl.obolibrary.org/obo/CHMO_> .
+
+###############################################################################
+# Nanocomposite Ontology
+# Namespace: nc: = <http://example.org/nanocomposite#>
+#
+# External alignments (skos:exactMatch / skos:closeMatch) to real ontologies:
+#   EMMO:  http://emmo.info/emmo#        (European Materials Modelling Ontology)
+#   ENVO:  http://purl.obolibrary.org/obo/ENVO_  (Environment Ontology)
+#   CHMO:  http://purl.obolibrary.org/obo/CHMO_  (Chemical Methods Ontology)
+# Portal URLs:
+#   EMMO:                    https://emmo-repo.github.io
+#   MatOnto (BioPortal):     https://bioportal.bioontology.org/ontologies/MATONTO
+#   CHMO (OLS4):             https://www.ebi.ac.uk/ols4/ontologies/chmo
+#   ENVO (OLS4):             https://www.ebi.ac.uk/ols4/ontologies/envo
+#   LCA / Env Impact:        https://www.semantic-web-journal.net/content/ontology-environmental-impact-assessment
+###############################################################################
+
+##############################
+# Classes
+##############################
+
+nc:Material a owl:Class ;
+    rdfs:label "Material" ;
+    rdfs:comment "Any material used in a nanocomposite formulation." .
+
+nc:Nanocomposite a owl:Class ;
+    rdfs:subClassOf nc:Material ;
+    rdfs:label "Nanocomposite" ;
+    rdfs:comment "A nanocomposite material made from a polymer matrix, optional agro-waste filler, and optional nanoparticle." .
+
+nc:Polymer a owl:Class ;
+    rdfs:subClassOf nc:Material ;
+    rdfs:label "Polymer" ;
+    rdfs:comment "A polymer matrix material." .
+
+nc:RecycledPolymer a owl:Class ;
+    rdfs:subClassOf nc:Polymer ;
+    rdfs:label "Recycled Polymer" ;
+    rdfs:comment "A polymer matrix containing recycled content." .
+
+nc:AgroWaste a owl:Class ;
+    rdfs:subClassOf nc:Material ;
+    rdfs:label "Agro Waste" ;
+    rdfs:comment "Agro-waste derived filler material (lignocellulosic biomass)." .
+
+nc:Nanoparticle a owl:Class ;
+    rdfs:subClassOf nc:Material ;
+    rdfs:label "Nanoparticle" ;
+    rdfs:comment "Nanoscale reinforcement additive." .
+
+nc:Process a owl:Class ;
+    rdfs:label "Process" ;
+    rdfs:comment "A manufacturing or treatment process step." .
+
+nc:Extrusion a owl:Class ;
+    rdfs:subClassOf nc:Process ;
+    rdfs:label "Extrusion" ;
+    rdfs:comment "Melt extrusion process step." .
+
+nc:Sonication a owl:Class ;
+    rdfs:subClassOf nc:Process ;
+    rdfs:label "Sonication" ;
+    rdfs:comment "Ultrasonic sonication process step." .
+
+nc:SurfaceTreatment a owl:Class ;
+    rdfs:subClassOf nc:Process ;
+    rdfs:label "Surface Treatment" ;
+    rdfs:comment "Filler/matrix surface treatment process step." .
+
+nc:Property a owl:Class ;
+    rdfs:label "Property" ;
+    rdfs:comment "A measured material property." .
+
+nc:MechanicalProperty a owl:Class ;
+    rdfs:subClassOf nc:Property ;
+    rdfs:label "Mechanical Property" ;
+    rdfs:comment "A mechanical property (e.g. tensile strength, Young's modulus)." .
+
+nc:ThermalProperty a owl:Class ;
+    rdfs:subClassOf nc:Property ;
+    rdfs:label "Thermal Property" ;
+    rdfs:comment "A thermal property (e.g. thermal conductivity)." .
+
+nc:SustainabilityMetric a owl:Class ;
+    rdfs:subClassOf nc:Property ;
+    rdfs:label "Sustainability Metric" ;
+    rdfs:comment "A sustainability metric (e.g. GWP, recyclability)." .
+
+nc:Application a owl:Class ;
+    rdfs:label "Application" ;
+    rdfs:comment "A target construction application." .
+
+nc:InsulationPanel a owl:Class ;
+    rdfs:subClassOf nc:Application ;
+    rdfs:label "Insulation Panel" ;
+    rdfs:comment "Construction insulation panel application." .
+
+nc:StructuralDecking a owl:Class ;
+    rdfs:subClassOf nc:Application ;
+    rdfs:label "Structural Decking" ;
+    rdfs:comment "Construction structural decking application." .
+
+nc:Characteristic a owl:Class ;
+    rdfs:label "Characteristic" ;
+    rdfs:comment "A qualitative characteristic of a material (e.g. lignocellulosic, insulation potential)." .
+
+##############################
+# Object properties
+##############################
+
+nc:hasMatrix a owl:ObjectProperty ;
+    rdfs:label "has matrix" ;
+    rdfs:comment "Links a nanocomposite to its polymer matrix material." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range nc:Material .
+
+nc:hasFiller a owl:ObjectProperty ;
+    rdfs:label "has filler" ;
+    rdfs:comment "Links a nanocomposite to its agro-waste filler material." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range nc:Material .
+
+nc:hasNanoparticle a owl:ObjectProperty ;
+    rdfs:label "has nanoparticle" ;
+    rdfs:comment "Links a nanocomposite to its nanoparticle additive." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range nc:Material .
+
+nc:processedBy a owl:ObjectProperty ;
+    rdfs:label "processed by" ;
+    rdfs:comment "Links a nanocomposite or material to a process step." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range nc:Process .
+
+nc:hasProperty a owl:ObjectProperty ;
+    rdfs:label "has property" ;
+    rdfs:comment "Links a nanocomposite to a property measurement node." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range nc:Property .
+
+nc:suitableFor a owl:ObjectProperty ;
+    rdfs:label "suitable for" ;
+    rdfs:comment "Links a nanocomposite to a construction application it satisfies." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range nc:Application .
+
+nc:hasCharacteristic a owl:ObjectProperty ;
+    rdfs:label "has characteristic" ;
+    rdfs:comment "Links a material to a qualitative characteristic." ;
+    rdfs:domain nc:Material ;
+    rdfs:range nc:Characteristic .
+
+##############################
+# Datatype properties
+##############################
+
+nc:weightPercent a owl:DatatypeProperty ;
+    rdfs:label "weight percent" ;
+    rdfs:comment "Weight percentage of a filler or nanoparticle (unit: wt%)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:particleSize a owl:DatatypeProperty ;
+    rdfs:label "particle size" ;
+    rdfs:comment "Particle size of filler (unit: um) or nanoparticle (unit: nm)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasValue a owl:DatatypeProperty ;
+    rdfs:label "has value" ;
+    rdfs:comment "Numeric value of a property measurement." ;
+    rdfs:domain nc:Property ;
+    rdfs:range xsd:decimal .
+
+nc:hasUnit a owl:DatatypeProperty ;
+    rdfs:label "has unit" ;
+    rdfs:comment "Unit of a property measurement (xsd:string)." ;
+    rdfs:domain nc:Property ;
+    rdfs:range xsd:string .
+
+##############################
+# Input feature datatype properties
+##############################
+
+nc:hasRecycledContentPct a owl:DatatypeProperty ;
+    rdfs:label "has recycled content pct" ;
+    rdfs:comment "Recycled content of the matrix (unit: %)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasFillerWtPct a owl:DatatypeProperty ;
+    rdfs:label "has filler wt pct" ;
+    rdfs:comment "Agro-filler loading (unit: wt%)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasFillerParticleSizeUm a owl:DatatypeProperty ;
+    rdfs:label "has filler particle size um" ;
+    rdfs:comment "Agro-filler particle size (unit: um). 0 when no filler." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasNanoWtPct a owl:DatatypeProperty ;
+    rdfs:label "has nano wt pct" ;
+    rdfs:comment "Nanoparticle loading (unit: wt%). 0 when no nanoparticle." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasNanoSizeNm a owl:DatatypeProperty ;
+    rdfs:label "has nano size nm" ;
+    rdfs:comment "Nanoparticle size (unit: nm). 0 when no nanoparticle." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasExtrusionTempC a owl:DatatypeProperty ;
+    rdfs:label "has extrusion temp C" ;
+    rdfs:comment "Extrusion temperature (unit: C)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasScrewSpeedRpm a owl:DatatypeProperty ;
+    rdfs:label "has screw speed rpm" ;
+    rdfs:comment "Screw speed (unit: rpm)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasSonicationMin a owl:DatatypeProperty ;
+    rdfs:label "has sonication min" ;
+    rdfs:comment "Sonication time (unit: min)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:decimal .
+
+nc:hasSurfaceTreatment a owl:DatatypeProperty ;
+    rdfs:label "has surface treatment" ;
+    rdfs:comment "Surface treatment applied (xsd:string)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:string .
+
+nc:hasSource a owl:DatatypeProperty ;
+    rdfs:label "has source" ;
+    rdfs:comment "Data provenance: literature, user, synthetic, or seed_example (xsd:string)." ;
+    rdfs:domain nc:Nanocomposite ;
+    rdfs:range xsd:string .
+
+##############################
+# Shared material individuals (reused across samples)
+##############################
+
+nc:HDPE a nc:Polymer ;
+    rdfs:label "HDPE" ;
+    rdfs:comment "High-density polyethylene matrix." .
+
+nc:LDPE a nc:Polymer ;
+    rdfs:label "LDPE" ;
+    rdfs:comment "Low-density polyethylene matrix." .
+
+nc:PP a nc:Polymer ;
+    rdfs:label "PP" ;
+    rdfs:comment "Polypropylene matrix." .
+
+nc:PET_recycled a nc:RecycledPolymer ;
+    rdfs:label "Recycled PET" ;
+    rdfs:comment "Recycled polyethylene terephthalate matrix." ;
+    skos:closeMatch <http://emmo.info/emmo#recycledPolymer> .
+
+nc:PLA a nc:Polymer ;
+    rdfs:label "PLA" ;
+    rdfs:comment "Polylactic acid matrix (bio-based, biodegradable)." .
+
+nc:rice_husk a nc:AgroWaste ;
+    rdfs:label "Rice Husk" ;
+    rdfs:comment "Rice husk agro-waste filler (lignocellulosic biomass)." ;
+    skos:closeMatch <http://emmo.info/emmo#lignocellulosicBiomass> .
+
+nc:wheat_straw a nc:AgroWaste ;
+    rdfs:label "Wheat Straw" ;
+    rdfs:comment "Wheat straw agro-waste filler." .
+
+nc:sugarcane_bagasse a nc:AgroWaste ;
+    rdfs:label "Sugarcane Bagasse" ;
+    rdfs:comment "Sugarcane bagasse agro-waste filler." .
+
+nc:coconut_coir a nc:AgroWaste ;
+    rdfs:label "Coconut Coir" ;
+    rdfs:comment "Coconut coir agro-waste filler." .
+
+nc:SiO2 a nc:Nanoparticle ;
+    rdfs:label "Silica (SiO2)" ;
+    rdfs:comment "Silica nanoparticle." .
+
+nc:nanoclay a nc:Nanoparticle ;
+    rdfs:label "Nanoclay" ;
+    rdfs:comment "Nanoclay additive." .
+
+nc:TiO2 a nc:Nanoparticle ;
+    rdfs:label "Titanium Dioxide (TiO2)" ;
+    rdfs:comment "Titanium dioxide nanoparticle." .
+
+nc:cellulose_nanocrystal a nc:Nanoparticle ;
+    rdfs:label "Cellulose Nanocrystal" ;
+    rdfs:comment "Cellulose nanocrystal additive." .
+
+##############################
+# Process individuals
+##############################
+
+nc:extrusion_process a nc:Extrusion ;
+    rdfs:label "Extrusion" ;
+    rdfs:comment "Melt extrusion process." .
+
+nc:sonication_process a nc:Sonication ;
+    rdfs:label "Sonication" ;
+    rdfs:comment "Ultrasonic sonication process." .
+
+nc:surface_treatment_process a nc:SurfaceTreatment ;
+    rdfs:label "Surface Treatment" ;
+    rdfs:comment "Filler/matrix surface treatment." .
+
+nc:no_process a nc:Process ;
+    rdfs:label "No Process" ;
+    rdfs:comment "Placeholder when no process step applies." .
+
+##############################
+# Application individuals
+##############################
+
+nc:insulation_panel a nc:InsulationPanel ;
+    rdfs:label "Insulation Panel" ;
+    rdfs:comment "Construction insulation panel application." .
+
+nc:structural_decking a nc:StructuralDecking ;
+    rdfs:label "Structural Decking" ;
+    rdfs:comment "Construction structural decking application." .
+
+##############################
+# Knowledge links (rice husk -> lignocellulosic biomass -> insulation potential)
+##############################
+
+nc:lignocellulosic_biomass a nc:Characteristic ;
+    rdfs:label "Lignocellulosic Biomass" ;
+    rdfs:comment "Qualitative characteristic: material is lignocellulosic biomass." ;
+    skos:closeMatch <http://emmo.info/emmo#lignocellulosicBiomass> .
+
+nc:insulation_potential a nc:Characteristic ;
+    rdfs:label "Insulation Potential" ;
+    rdfs:comment "Qualitative characteristic: material has insulation potential." ;
+    skos:closeMatch <http://purl.obolibrary.org/obo/ENVO_00002040> .
+
+nc:rice_husk nc:hasCharacteristic nc:lignocellulosic_biomass .
+nc:lignocellulosic_biomass nc:hasCharacteristic nc:insulation_potential .

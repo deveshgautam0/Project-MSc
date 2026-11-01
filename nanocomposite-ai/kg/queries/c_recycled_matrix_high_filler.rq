@@ -1,0 +1,18 @@
+# (c) Composites using recycled matrix with filler_wt_pct > 20
+PREFIX nc: <http://example.org/nanocomposite#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?sample ?matrix ?filler ?filler_wt ?tensile WHERE {
+    ?sample a nc:Nanocomposite ;
+            nc:hasMatrix ?matrix ;
+            nc:hasFiller ?filler ;
+            nc:weightPercent ?filler_wt ;
+            nc:hasProperty ?tsNode .
+    ?matrix a nc:RecycledPolymer .
+    ?tsNode a nc:MechanicalProperty ;
+            nc:hasValue ?tensile ;
+            nc:hasUnit "MPa" .
+    FILTER(?filler_wt > 20.0)
+}
+ORDER BY ?sample

@@ -1,0 +1,43 @@
+@prefix nc: <http://example.org/nanocomposite#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+###############################################################################
+# SHACL shapes for the Nanocomposite Knowledge Graph
+# Forbidden additives injected from config.FORBIDDEN_ADDITIVES.
+###############################################################################
+
+nc:NanocompositeShape a sh:NodeShape ;
+    sh:targetClass nc:Nanocomposite ;
+    sh:comment "Every nanocomposite must have exactly one matrix and a valid filler weight percent (0-40 wt%)." ;
+
+    sh:property [
+        sh:path nc:hasMatrix ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A nanocomposite must have exactly one hasMatrix link." ;
+    ] ;
+    sh:property [
+        sh:path nc:weightPercent ;
+        sh:minInclusive 0.0 ;
+        sh:maxInclusive 40.0 ;
+        sh:message "filler_wt_pct must be between 0 and 40 wt%." ;
+    ] .
+
+nc:PropertyShape a sh:NodeShape ;
+    sh:targetClass nc:Property ;
+    sh:comment "Every property measurement must have a numeric value and a unit string." ;
+
+    sh:property [
+        sh:path nc:hasValue ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A property must have exactly one hasValue." ;
+    ] ;
+
+    sh:property [
+        sh:path nc:hasUnit ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A property must have exactly one hasUnit." ;
+    ] .

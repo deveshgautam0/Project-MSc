@@ -1,0 +1,20 @@
+# (a) All nanocomposites suitable for insulation_panel
+# Uses the suitableFor links computed in kg_build.py from config USE_CASES thresholds.
+PREFIX nc: <http://example.org/nanocomposite#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?sample ?matrix ?filler ?nano ?thermal ?tensile WHERE {
+    ?sample a nc:Nanocomposite ;
+            nc:hasMatrix ?matrix ;
+            nc:suitableFor nc:insulation_panel ;
+            nc:hasProperty ?tpNode , ?tsNode .
+    ?tpNode a nc:ThermalProperty ;
+            nc:hasValue ?thermal ;
+            nc:hasUnit "W/mK" .
+    ?tsNode a nc:MechanicalProperty ;
+            nc:hasValue ?tensile ;
+            nc:hasUnit "MPa" .
+    OPTIONAL { ?sample nc:hasFiller ?filler . }
+    OPTIONAL { ?sample nc:hasNanoparticle ?nano . }
+}
+ORDER BY ?sample

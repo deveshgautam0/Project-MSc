@@ -1,0 +1,15 @@
+# (b) Average tensile strength by filler type
+PREFIX nc: <http://example.org/nanocomposite#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?filler (AVG(?tensile) AS ?avg_tensile_strength_MPa) (COUNT(?sample) AS ?n_samples) WHERE {
+    ?sample a nc:Nanocomposite ;
+            nc:hasProperty ?tsNode .
+    ?tsNode a nc:MechanicalProperty ;
+            nc:hasValue ?tensile ;
+            nc:hasUnit "MPa" .
+    OPTIONAL { ?sample nc:hasFiller ?filler . }
+}
+GROUP BY ?filler
+ORDER BY ?filler

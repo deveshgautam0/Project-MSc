@@ -1,0 +1,916 @@
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] request failed ({url}): {exc}")
+        return None
+
+
+# ===========================================================================
+# Source fetchers (one per public source)
+# ===========================================================================
+
+def fetch_polynims():
+    """PoLyInfo (NIMS) -- polymer / bioplastic property data."""
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Polymer/Bioplastic Data"]["PoLyInfo (NIMS)"]
+    print(f"  [INFO] PoLyInfo: {url} -- manual export required (no public bulk API).")
+    print("  [HINT] Export CSV from PoLyInfo, map columns to the schema, ")
+    print("         place in data/raw/polynims_export.csv with source='literature'.")
+    return df
+
+
+def fetch_polymergenome():
+    """Polymer Genome -- polymer informatics data (API if key available)."""
+    df = _empty_df()
+    api_key = os.getenv("POLYGENOME_API_KEY")
+    if not api_key:
+        print("  [WARN] Polymer Genome: POLYGENOME_API_KEY not set -- skipping.")
+        return df
+    url = "https://polymergenome.org/api/properties"
+    resp = _safe_request(url, headers={"Authorization": f"Bearer {api_key}"})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data:
+            row = {c: item.get(c) for c in ALL_COLS}
+            row["source"] = "literature"
+            row["reference"] = "Polymer Genome API"
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] Polymer Genome: parse failed -- {exc}")
+    return df
+
+
+def fetch_pubchem():
+    """PubChem -- agri-waste / chemical compound data (PUG REST API)."""
+    df = _empty_df()
+    cids = [
+        "cellulose", "lignin", "hemicellulose", "rice husk silica",
+        "wheat straw", "sugarcane bagasse", "coconut coir",
+    ]
+    rows = []
+    for cid in cids:
+        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{cid}/property/MolecularFormula,MolecularWeight,CanonicalSMILES/JSON"
+        resp = _safe_request(url)
+        if resp is None:
+            continue
+        try:
+            props = resp.json()["PropertyTable"]["Properties"][0]
+            row = {
+                "matrix_polymer": "none",
+                "agro_filler": cid.replace(" ", "_"),
+                "nanoparticle": "none",
+                "surface_treatment": "none",
+                "source": "literature",
+                "reference": f"PubChem CID {cid}",
+            }
+            for k in INPUT_FEATURES:
+                if k not in row:
+                    row[k] = 0.0
+            for t in TARGET_COLS:
+                row[t] = 0.0
+            rows.append(row)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [WARN] PubChem: parse failed for {cid} -- {exc}")
+        time.sleep(0.2)  # be polite to PubChem
+    if rows:
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    return df
+
+
+def fetch_chebi():
+    """ChEBI (EBI) -- agri-waste chemical ontology data (web service)."""
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Agri-waste Materials"]["ChEBI (EBI)"]
+    print(f"  [INFO] ChEBI: {url} -- use ChEBI web service / OWL export for bulk.")
+    print("  [HINT] Download ChEBI OWL, map chemical roles to agro_filler / ")
+    print("         nanoparticle, save as data/raw/chebi_export.csv with source='literature'.")
+    return df
+
+
+def fetch_nanomine():
+    """NanoMine -- nanocomposite property data (NIST)."""
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Nanocomposite Properties"]["NanoMine"]
+    print(f"  [INFO] NanoMine: {url} -- REST API / bulk download may require registration.")
+    print("  [HINT] Export nanocomposite datasets from NanoMine, map to schema, ")
+    print("         save as data/raw/nanomine_export.csv with source='literature'.")
+    return df
+    return df
+    return df
+
+
+def fetch_chebi():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Agri-waste Materials"]["ChEBI (EBI)"]
+    print(f"  [INFO] ChEBI: {url} -- manual OWL export required.")
+    return df
+
+
+def fetch_nanomine():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Nanocomposite Properties"]["NanoMine"]
+    print(f"  [INFO] NanoMine: {url} -- manual export required.")
+    return df
+
+
+def fetch_materialsproject():
+    df = _empty_df()
+    api_key = os.getenv("MATPROJECT_API_KEY")
+    if not api_key:
+        print("  [WARN] Materials Project: MATPROJECT_API_KEY not set -- skipping.")
+        return df
+    url = "https://next-gen.materialsproject.org/api/v1/materials/summary"
+    resp = _safe_request(url, params={"api_key": api_key, "limit": 100})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data.get("data", []):
+            elements = item.get("elements", ["none"])
+            row = {"matrix_polymer": "none", "agro_filler": "none",
+                   "nanoparticle": elements[0] if elements else "none",
+                   "source": "literature", "reference": "Materials Project API"}
+            for k in INPUT_FEATURES:
+                if k not in row:
+                    row[k] = 0.0
+            for t in TARGET_COLS:
+                row[t] = 0.0
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception:
+        pass
+    return df
+
+
+def fetch_ecoinvent():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Environmental / LCA Data"]["Ecoinvent"]
+    print(f"  [INFO] Ecoinvent: {url} -- commercial license required.")
+    return df
+
+
+def fetch_openlca_nexus():
+    df = _empty_df()
+    api_key = os.getenv("OPENLCA_API_KEY")
+    if not api_key:
+        print("  [WARN] openLCA Nexus: OPENLCA_API_KEY not set -- skipping.")
+        return df
+    url = "https://nexus.openlca.org/api/search"
+    resp = _safe_request(url, headers={"Authorization": f"Bearer {api_key}"})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data:
+            row = {"source": "literature", "reference": "openLCA Nexus"}
+            for k in INPUT_FEATURES:
+                row[k] = item.get(k, 0.0)
+            for t in TARGET_COLS:
+                row[t] = item.get(t, 0.0)
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception:
+        pass
+    return df
+
+
+FETCHERS = {
+    "polynims": fetch_polynims,
+    "polymergenome": fetch_polymergenome,
+    "pubchem": fetch_pubchem,
+    "chebi": fetch_chebi,
+    "nanomine": fetch_nanomine,
+    "materialsproject": fetch_materialsproject,
+    "ecoinvent": fetch_ecoinvent,
+    "openlca_nexus": fetch_openlca_nexus,
+}
+
+
+def fetch_all(limit_to=None):
+    frames = []
+    targets = limit_to or list(FETCHERS.keys())
+    for name in targets:
+        if name not in FETCHERS:
+            print(f"  [WARN] unknown source '{name}', skipping.")
+            continue
+        print(f"\n  ==> Fetching {name} ..")
+        df = FETCHERS[name]()
+        if len(df):
+            frames.append(df)
+            print(f"     -> {len(df)} rows fetched.")
+        else:
+            print(f"     -> 0 rows (source may need manual export / API key).")
+    if not frames:
+        return _empty_df()
+    return pd.concat(frames, ignore_index=True)
+
+
+def save_csv(df, name="ingested_open_sources.csv"):
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = RAW_DIR / name
+    df.to_csv(out_path, index=False)
+    print(f"\n  [OK] Wrote {len(df)} rows -> {out_path}")
+    return out_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Ingest open-source nanocomposite data.")
+    parser.add_argument("--source", nargs="+", help="Source key(s) to fetch (default: all).")
+    parser.add_argument("--dry-run", action="store_true", help="List sources without fetching.")
+    parser.add_argument("--out", default="ingested_open_sources.csv", help="Output CSV filename.")
+    args = parser.parse_args()
+    if args.dry_run:
+        print("Available sources:")
+        for cat, sources in DATA_ACQUISITION_SOURCES.items():
+            print(f"  {cat}:")
+            for s, u in sources.items():
+                print(f"    - {s}: {u}")
+        return
+    df = fetch_all(limit_to=args.source)
+    if len(df):
+        save_csv(df, args.out)
+    else:
+        print("\n  [INFO] No data fetched. Use --dry-run to see sources, or export CSVs manually.")
+
+
+if __name__ == "__main__":
+    main()
+
+
+def fetch_chebi():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Agri-waste Materials"]["ChEBI (EBI)"]
+    print(f"  [INFO] ChEBI: {url} -- manual OWL export required.")
+    return df
+
+
+def fetch_nanomine():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Nanocomposite Properties"]["NanoMine"]
+    print(f"  [INFO] NanoMine: {url} -- manual export required.")
+    return df
+
+
+def fetch_materialsproject():
+    df = _empty_df()
+    api_key = os.getenv("MATPROJECT_API_KEY")
+    if not api_key:
+        print("  [WARN] Materials Project: MATPROJECT_API_KEY not set -- skipping.")
+        return df
+    url = "https://next-gen.materialsproject.org/api/v1/materials/summary"
+    resp = _safe_request(url, params={"api_key": api_key, "limit": 100})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data.get("data", []):
+            elements = item.get("elements", ["none"])
+            row = {"matrix_polymer": "none", "agro_filler": "none",
+                   "nanoparticle": elements[0] if elements else "none",
+                   "source": "literature", "reference": "Materials Project API"}
+            for k in INPUT_FEATURES:
+                if k not in row:
+                    row[k] = 0.0
+            for t in TARGET_COLS:
+                row[t] = 0.0
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception:
+        pass
+    return df
+
+
+def fetch_ecoinvent():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Environmental / LCA Data"]["Ecoinvent"]
+    print(f"  [INFO] Ecoinvent: {url} -- commercial license required.")
+    return df
+
+
+def fetch_openlca_nexus():
+    df = _empty_df()
+    api_key = os.getenv("OPENLCA_API_KEY")
+    if not api_key:
+        print("  [WARN] openLCA Nexus: OPENLCA_API_KEY not set -- skipping.")
+        return df
+    url = "https://nexus.openlca.org/api/search"
+    resp = _safe_request(url, headers={"Authorization": f"Bearer {api_key}"})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data:
+            row = {"source": "literature", "reference": "openLCA Nexus"}
+            for k in INPUT_FEATURES:
+                row[k] = item.get(k, 0.0)
+            for t in TARGET_COLS:
+                row[t] = item.get(t, 0.0)
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception:
+        pass
+    return df
+
+
+FETCHERS = {
+    "polynims": fetch_polynims,
+    "polymergenome": fetch_polymergenome,
+    "pubchem": fetch_pubchem,
+    "chebi": fetch_chebi,
+    "nanomine": fetch_nanomine,
+    "materialsproject": fetch_materialsproject,
+    "ecoinvent": fetch_ecoinvent,
+    "openlca_nexus": fetch_openlca_nexus,
+}
+
+
+def fetch_all(limit_to=None):
+    frames = []
+    targets = limit_to or list(FETCHERS.keys())
+    for name in targets:
+        if name not in FETCHERS:
+            print(f"  [WARN] unknown source '{name}', skipping.")
+            continue
+        print(f"\n  ==> Fetching {name} ..")
+        df = FETCHERS[name]()
+        if len(df):
+            frames.append(df)
+            print(f"     -> {len(df)} rows fetched.")
+        else:
+            print(f"     -> 0 rows (source may need manual export / API key).")
+    if not frames:
+        return _empty_df()
+    combined = pd.concat(frames, ignore_index=True)
+    return combined
+
+
+def save_csv(df, name="ingested_open_sources.csv"):
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = RAW_DIR / name
+    df.to_csv(out_path, index=False)
+    print(f"\n  [OK] Wrote {len(df)} rows -> {out_path}")
+    return out_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Ingest open-source nanocomposite data.")
+    parser.add_argument("--source", nargs="+", help="Source key(s) to fetch (default: all).")
+    parser.add_argument("--dry-run", action="store_true", help="List sources without fetching.")
+    parser.add_argument("--out", default="ingested_open_sources.csv", help="Output CSV filename.")
+    args = parser.parse_args()
+    if args.dry_run:
+        print("Available sources:")
+        for cat, sources in DATA_ACQUISITION_SOURCES.items():
+            print(f"  {cat}:")
+            for s, u in sources.items():
+                print(f"    - {s}: {u}")
+        return
+    df = fetch_all(limit_to=args.source)
+    if len(df):
+        save_csv(df, args.out)
+    else:
+        print("\n  [INFO] No data fetched. Use --dry-run to see sources, or export CSVs manually.")
+
+
+if __name__ == "__main__":
+    main()
+
+    return df
+
+
+def fetch_chebi():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Agri-waste Materials"]["ChEBI (EBI)"]
+    print(f"  [INFO] ChEBI: {url} -- manual OWL export required.")
+    return df
+
+
+def fetch_nanomine():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Nanocomposite Properties"]["NanoMine"]
+    print(f"  [INFO] NanoMine: {url} -- manual export required.")
+    return df
+
+
+def fetch_materialsproject():
+    df = _empty_df()
+    api_key = os.getenv("MATPROJECT_API_KEY")
+    if not api_key:
+        print("  [WARN] Materials Project: MATPROJECT_API_KEY not set -- skipping.")
+        return df
+    url = "https://next-gen.materialsproject.org/api/v1/materials/summary"
+    resp = _safe_request(url, params={"api_key": api_key, "limit": 100})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data.get("data", []):
+            elements = item.get("elements", ["none"])
+            row = {"matrix_polymer": "none", "agro_filler": "none",
+                   "nanoparticle": elements[0] if elements else "none",
+                   "source": "literature", "reference": "Materials Project API"}
+            for k in INPUT_FEATURES:
+                if k not in row:
+                    row[k] = 0.0
+            for t in TARGET_COLS:
+                row[t] = 0.0
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception:
+        pass
+    return df
+
+
+def fetch_ecoinvent():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Environmental / LCA Data"]["Ecoinvent"]
+    print(f"  [INFO] Ecoinvent: {url} -- commercial license required.")
+    return df
+
+
+def fetch_openlca_nexus():
+    df = _empty_df()
+    api_key = os.getenv("OPENLCA_API_KEY")
+    if not api_key:
+        print("  [WARN] openLCA Nexus: OPENLCA_API_KEY not set -- skipping.")
+        return df
+    url = "https://nexus.openlca.org/api/search"
+    resp = _safe_request(url, headers={"Authorization": f"Bearer {api_key}"})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data:
+            row = {"source": "literature", "reference": "openLCA Nexus"}
+            for k in INPUT_FEATURES:
+                row[k] = item.get(k, 0.0)
+            for t in TARGET_COLS:
+                row[t] = item.get(t, 0.0)
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception:
+        pass
+    return df
+
+
+FETCHERS = {
+    "polynims": fetch_polynims,
+    "polymergenome": fetch_polymergenome,
+    "pubchem": fetch_pubchem,
+    "chebi": fetch_chebi,
+    "nanomine": fetch_nanomine,
+    "materialsproject": fetch_materialsproject,
+    "ecoinvent": fetch_ecoinvent,
+    "openlca_nexus": fetch_openlca_nexus,
+}
+
+
+def fetch_all(limit_to=None):
+    frames = []
+    targets = limit_to or list(FETCHERS.keys())
+    for name in targets:
+        if name not in FETCHERS:
+            print(f"  [WARN] unknown source '{name}', skipping.")
+            continue
+        print(f"\n  ==> Fetching {name} ..")
+        df = FETCHERS[name]()
+        if len(df):
+            frames.append(df)
+            print(f"     -> {len(df)} rows fetched.")
+        else:
+            print(f"     -> 0 rows (source may need manual export / API key).")
+    if not frames:
+        return _empty_df()
+    combined = pd.concat(frames, ignore_index=True)
+    return combined
+
+
+def save_csv(df, name="ingested_open_sources.csv"):
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = RAW_DIR / name
+    df.to_csv(out_path, index=False)
+    print(f"\n  [OK] Wrote {len(df)} rows -> {out_path}")
+    return out_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Ingest open-source nanocomposite data.")
+    parser.add_argument("--source", nargs="+", help="Source key(s) to fetch (default: all).")
+    parser.add_argument("--dry-run", action="store_true", help="List sources without fetching.")
+    parser.add_argument("--out", default="ingested_open_sources.csv", help="Output CSV filename.")
+    args = parser.parse_args()
+    if args.dry_run:
+        print("Available sources:")
+        for cat, sources in DATA_ACQUISITION_SOURCES.items():
+            print(f"  {cat}:")
+            for s, u in sources.items():
+                print(f"    - {s}: {u}")
+        return
+    df = fetch_all(limit_to=args.source)
+    if len(df):
+        save_csv(df, args.out)
+    else:
+        print("\n  [INFO] No data fetched. Use --dry-run to see sources, or export CSVs manually.")
+
+
+if __name__ == "__main__":
+    main()
+    return df
+
+
+def fetch_chebi():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Agri-waste Materials"]["ChEBI (EBI)"]
+    print(f"  [INFO] ChEBI: {url} -- manual OWL export required.")
+    return df
+
+
+def fetch_nanomine():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Nanocomposite Properties"]["NanoMine"]
+    print(f"  [INFO] NanoMine: {url} -- manual export required.")
+    return df
+
+
+def fetch_materialsproject():
+    df = _empty_df()
+    api_key = os.getenv("MATPROJECT_API_KEY")
+    if not api_key:
+        print("  [WARN] Materials Project: MATPROJECT_API_KEY not set -- skipping.")
+        return df
+    url = "https://next-gen.materialsproject.org/api/v1/materials/summary"
+    resp = _safe_request(url, params={"api_key": api_key, "limit": 100})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data.get("data", []):
+            elements = item.get("elements", ["none"])
+            row = {"matrix_polymer": "none", "agro_filler": "none",
+                   "nanoparticle": elements[0] if elements else "none",
+                   "source": "literature", "reference": "Materials Project API"}
+            for k in INPUT_FEATURES:
+                if k not in row:
+                    row[k] = 0.0
+            for t in TARGET_COLS:
+                row[t] = 0.0
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception:
+        pass
+    return df
+
+
+def fetch_ecoinvent():
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Environmental / LCA Data"]["Ecoinvent"]
+    print(f"  [INFO] Ecoinvent: {url} -- commercial license required.")
+    return df
+
+
+def fetch_openlca_nexus():
+    df = _empty_df()
+    api_key = os.getenv("OPENLCA_API_KEY")
+    if not api_key:
+        print("  [WARN] openLCA Nexus: OPENLCA_API_KEY not set -- skipping.")
+        return df
+    url = "https://nexus.openlca.org/api/search"
+    resp = _safe_request(url, headers={"Authorization": f"Bearer {api_key}"})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data:
+            row = {"source": "literature", "reference": "openLCA Nexus"}
+            for k in INPUT_FEATURES:
+                row[k] = item.get(k, 0.0)
+            for t in TARGET_COLS:
+                row[t] = item.get(t, 0.0)
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception:
+        pass
+    return df
+
+def fetch_materialsproject():
+    """Materials Project (Next-Gen) -- materials data (API key required)."""
+    df = _empty_df()
+    api_key = os.getenv("MATPROJECT_API_KEY")
+    if not api_key:
+        print("  [WARN] Materials Project: MATPROJECT_API_KEY not set -- skipping.")
+        return df
+    url = "https://next-gen.materialsproject.org/api/v1/materials/summary"
+    resp = _safe_request(url, params={"api_key": api_key, "limit": 100})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data.get("data", []):
+            elements = item.get("elements", ["none"])
+            row = {
+                "matrix_polymer": "none",
+                "agro_filler": "none",
+                "nanoparticle": elements[0] if elements else "none",
+                "source": "literature",
+                "reference": "Materials Project API",
+            }
+            for k in INPUT_FEATURES:
+                if k not in row:
+    return df
+
+
+FETCHERS = {
+    "polynims": fetch_polynims,
+    "polymergenome": fetch_polymergenome,
+    "pubchem": fetch_pubchem,
+    "chebi": fetch_chebi,
+    "nanomine": fetch_nanomine,
+    "materialsproject": fetch_materialsproject,
+    "ecoinvent": fetch_ecoinvent,
+    "openlca_nexus": fetch_openlca_nexus,
+}
+
+
+def fetch_all(limit_to=None):
+    frames = []
+    targets = limit_to or list(FETCHERS.keys())
+    for name in targets:
+        if name not in FETCHERS:
+            print(f"  [WARN] unknown source '{name}', skipping.")
+            continue
+        print(f"\n  ==> Fetching {name} ..")
+        df = FETCHERS[name]()
+        if len(df):
+            frames.append(df)
+            print(f"     -> {len(df)} rows fetched.")
+        else:
+            print(f"     -> 0 rows (source may need manual export / API key).")
+    if not frames:
+        return _empty_df()
+    combined = pd.concat(frames, ignore_index=True)
+    return combined
+
+
+def save_csv(df, name="ingested_open_sources.csv"):
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = RAW_DIR / name
+    df.to_csv(out_path, index=False)
+    print(f"\n  [OK] Wrote {len(df)} rows -> {out_path}")
+    return out_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Ingest open-source nanocomposite data.")
+    parser.add_argument("--source", nargs="+", help="Source key(s) to fetch (default: all).")
+    parser.add_argument("--dry-run", action="store_true", help="List sources without fetching.")
+    parser.add_argument("--out", default="ingested_open_sources.csv", help="Output CSV filename.")
+    args = parser.parse_args()
+    if args.dry_run:
+        print("Available sources:")
+        for cat, sources in DATA_ACQUISITION_SOURCES.items():
+            print(f"  {cat}:")
+            for s, u in sources.items():
+                print(f"    - {s}: {u}")
+        return
+    df = fetch_all(limit_to=args.source)
+    if len(df):
+        save_csv(df, args.out)
+    else:
+        print("\n  [INFO] No data fetched. Use --dry-run to see sources, or export CSVs manually.")
+
+
+if __name__ == "__main__":
+    main()
+                    row[k] = 0.0
+            for t in TARGET_COLS:
+                row[t] = 0.0
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] Materials Project: parse failed -- {exc}")
+    return df
+
+
+def fetch_ecoinvent():
+    """Ecoinvent -- LCA / environmental impact data (license required)."""
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Environmental / LCA Data"]["Ecoinvent"]
+    print(f"  [INFO] Ecoinvent: {url} -- commercial license required; no open bulk API.")
+    print("  [HINT] Export LCIA results from Ecoinvent, map to sustainability targets, ")
+    print("         save as data/raw/ecoinvent_export.csv with source='literature'.")
+    return df
+
+
+def fetch_openlca_nexus():
+    """openLCA Nexus -- LCA data repository (API if key available)."""
+    df = _empty_df()
+    api_key = os.getenv("OPENLCA_API_KEY")
+    if not api_key:
+        print("  [WARN] openLCA Nexus: OPENLCA_API_KEY not set -- skipping.")
+        return df
+    url = "https://nexus.openlca.org/api/search"
+    resp = _safe_request(url, headers={"Authorization": f"Bearer {api_key}"})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data:
+            row = {
+                "source": "literature",
+                "reference": "openLCA Nexus",
+            }
+            for k in INPUT_FEATURES:
+                row[k] = item.get(k, 0.0)
+            for t in TARGET_COLS:
+                row[t] = item.get(t, 0.0)
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] openLCA Nexus: parse failed -- {exc}")
+    return df
+
+
+def fetch_chebi():
+    """ChEBI (EBI) -- agri-waste chemical ontology data (web service)."""
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Agri-waste Materials"]["ChEBI (EBI)"]
+    print(f"  [INFO] ChEBI: {url} -- use ChEBI web service / OWL export for bulk.")
+    print("  [HINT] Download ChEBI OWL, map chemical roles to agro_filler / ")
+    print("         nanoparticle, save as data/raw/chebi_export.csv with source='literature'.")
+    return df
+
+
+def fetch_nanomine():
+    """NanoMine -- nanocomposite property data (NIST)."""
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Nanocomposite Properties"]["NanoMine"]
+    print(f"  [INFO] NanoMine: {url} -- REST API / bulk download may require registration.")
+    print("  [HINT] Export nanocomposite datasets from NanoMine, map to schema, ")
+    print("         save as data/raw/nanomine_export.csv with source='literature'.")
+    return df
+
+
+def fetch_materialsproject():
+    """Materials Project (Next-Gen) -- materials data (API key required)."""
+    df = _empty_df()
+    api_key = os.getenv("MATPROJECT_API_KEY")
+    if not api_key:
+        print("  [WARN] Materials Project: MATPROJECT_API_KEY not set -- skipping.")
+        return df
+    url = "https://next-gen.materialsproject.org/api/v1/materials/summary"
+    resp = _safe_request(url, params={"api_key": api_key, "limit": 100})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data.get("data", []):
+            elements = item.get("elements", ["none"])
+            row = {
+                "matrix_polymer": "none",
+                "agro_filler": "none",
+                "nanoparticle": elements[0] if elements else "none",
+                "source": "literature",
+                "reference": "Materials Project API",
+            }
+            for k in INPUT_FEATURES:
+                if k not in row:
+                    row[k] = 0.0
+            for t in TARGET_COLS:
+                row[t] = 0.0
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] Materials Project: parse failed -- {exc}")
+    return df
+
+
+def fetch_ecoinvent():
+    """Ecoinvent -- LCA / environmental impact data (license required)."""
+    df = _empty_df()
+    url = DATA_ACQUISITION_SOURCES["Environmental / LCA Data"]["Ecoinvent"]
+    print(f"  [INFO] Ecoinvent: {url} -- commercial license required; no open bulk API.")
+    print("  [HINT] Export LCIA results from Ecoinvent, map to sustainability targets, ")
+    print("         save as data/raw/ecoinvent_export.csv with source='literature'.")
+    return df
+
+
+def fetch_openlca_nexus():
+    """openLCA Nexus -- LCA data repository (API if key available)."""
+    df = _empty_df()
+    api_key = os.getenv("OPENLCA_API_KEY")
+    if not api_key:
+        print("  [WARN] openLCA Nexus: OPENLCA_API_KEY not set -- skipping.")
+        return df
+    url = "https://nexus.openlca.org/api/search"
+    resp = _safe_request(url, headers={"Authorization": f"Bearer {api_key}"})
+    if resp is None:
+        return df
+    try:
+        data = resp.json()
+        rows = []
+        for item in data:
+            row = {
+                "source": "literature",
+                "reference": "openLCA Nexus",
+            }
+            for k in INPUT_FEATURES:
+                row[k] = item.get(k, 0.0)
+            for t in TARGET_COLS:
+                row[t] = item.get(t, 0.0)
+            rows.append(row)
+        df = pd.DataFrame(rows, columns=ALL_COLS)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] openLCA Nexus: parse failed -- {exc}")
+    return df
+
+
+# Registry: source name -> fetch function
+FETCHERS = {
+    "polynims": fetch_polynims,
+    "polymergenome": fetch_polymergenome,
+    "pubchem": fetch_pubchem,
+    "chebi": fetch_chebi,
+    "nanomine": fetch_nanomine,
+    "materialsproject": fetch_materialsproject,
+    "ecoinvent": fetch_ecoinvent,
+    "openlca_nexus": fetch_openlca_nexus,
+}
+
+
+def fetch_all(limit_to=None):
+    """Run every fetcher (or the named subset) and concatenate results."""
+    frames = []
+    targets = limit_to or list(FETCHERS.keys())
+    for name in targets:
+        if name not in FETCHERS:
+            print(f"  [WARN] unknown source '{name}', skipping.")
+            continue
+        print(f"\n  ==> Fetching {name} ...")
+        df = FETCHERS[name]()
+        if len(df):
+            frames.append(df)
+            print(f"     -> {len(df)} rows fetched.")
+        else:
+            print(f"     -> 0 rows (source may need manual export / API key).")
+    if not frames:
+        return _empty_df()
+    combined = pd.concat(frames, ignore_index=True)
+    return combined
+
+
+def save_csv(df, name="ingested_open_sources.csv"):
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = RAW_DIR / name
+    df.to_csv(out_path, index=False)
+    print(f"\n  [OK] Wrote {len(df)} rows -> {out_path}")
+    return out_path
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Ingest open-source nanocomposite data."
+    )
+    parser.add_argument(
+        "--source", nargs="+", help="Source key(s) to fetch (default: all)."
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="List sources without fetching."
+    )
+    parser.add_argument(
+        "--out", default="ingested_open_sources.csv", help="Output CSV filename."
+    )
+    args = parser.parse_args()
+
+    if args.dry_run:
+        print("Available sources:")
+        for cat, sources in DATA_ACQUISITION_SOURCES.items():
+            print(f"  {cat}:")
+            for s, u in sources.items():
+                print(f"    - {s}: {u}")
+        return
+
+    df = fetch_all(limit_to=args.source)
+    if len(df):
+        save_csv(df, args.out)
+    else:
+        print(
+            "\n  [INFO] No data fetched. Use --dry-run to see sources, "
+            "or export CSVs manually."
+        )
+
+
+if __name__ == "__main__":
+    main()

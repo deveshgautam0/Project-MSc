@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+.ENV/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Generated / runtime outputs (do not commit derived artifacts)
+data/processed/*.csv
+data/processed/*.md
+models/*.joblib
+models/archive/
+reports/*.json
+reports/*.md
+reports/figures/*.png
+reports/figures/*.html
+tests/__pycache__/
+.pytest_cache/
+
+# Local secrets
+.env

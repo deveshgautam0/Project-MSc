@@ -1,0 +1,132 @@
+    def forward(self, x, edge_index, batch):
+        h = self.conv1(x, edge_index).relu()
+        h = self.conv2(h, edge_index)
+        h = global_mean_pool(h, batch)
+        return self.head(h).squeeze(-1)
+
+
+class GNNPropertyPredictor:
+    """Graph Neural Network wrapper for nanocomposite property prediction.
+
+    If torch/torch_geometric are unavailable, falls back to a Random Forest
+    trained on graph-derived features (node/edge counts, degree stats).
+    """
+
+    def __init__(self, target_name: str):
+        self.target_name = target_name
+        self.model: Any = None
+        self.scaler: Any = StandardScaler()
+        self._use_torch = _HAS_TORCH
+
+    # ------------------------------------------------------------------
+    # Graph -> feature vector (fallback when PyG not available)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _graph_to_features(node_features: np.ndarray,
+                           edge_index: np.ndarray) -> np.ndarray:
+        n_nodes = node_features.shape[0]
+        n_edges = edge_index.shape[1] if edge_index.size else 0
+        feats = [
+            n_nodes,
+            n_edges,
+            float(node_features.mean()) if n_nodes else 0.0,
+            float(node_features.std()) if n_nodes else 0.0,
+            float(node_features.min()) if n_nodes else 0.0,
+            float(node_features.max()) if n_nodes else 0.0,
+        ]
+        return np.array(feats, dtype=float)
+
+    # ------------------------------------------------------------------
+    # Fit
+    # ------------------------------------------------------------------
+    def fit(self, graphs: list[dict], y: np.ndarray) -> "GNNPropertyPredictor":
+        """Train on a list of graph dicts with keys: node_features, edge_index."""
+        if self._use_torch:
+            self._fit_torch(graphs, y)
+        else:
+            X = np.stack([
+                self._graph_to_features(g["node_features"], g["edge_index"])
+                for g in graphs
+            ])
+        if not self._use_torch:
+            Xs = self.scaler.fit_transform(X)
+            self.model = RandomForestRegressor(n_estimators=100, random_state=42)
+            self.model.fit(Xs, y)
+        return self
+
+    def _fit_torch(self, graphs: list[dict], y: np.ndarray) -> None:
+        import torch
+        from torch_geometric.data import Data
+        from torch_geometric.loader import DataLoader
+
+        node_dim = graphs[0]["node_features"].shape[1]
+        self.model = _GNNRegressor(node_dim=node_dim)
+
+        data_list = []
+        for g, yi in zip(graphs, y):
+            x = torch.tensor(g["node_features"], dtype=torch.float)
+            ei = torch.tensor(g["edge_index"], dtype=torch.long)
+            data_list.append(Data(x=x, edge_index=ei, y=torch.tensor([yi], dtype=torch.float)))
+
+        loader = DataLoader(data_list, batch_size=16, shuffle=True)
+        opt = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        loss_fn = nn.MSELoss()
+
+        self.model.train()
+        for _ in range(50):
+            total = 0.0
+            for batch in loader:
+                opt.zero_grad()
+                out = self.model(batch.x, batch.edge_index, batch.batch)
+                loss = loss_fn(out, batch.y.squeeze())
+                loss.backward()
+                opt.step()
+                total += loss.item()
+
+    # ------------------------------------------------------------------
+    # Predict
+    # ------------------------------------------------------------------
+    def predict(self, graphs: list[dict]) -> np.ndarray:
+        if self._use_torch and self.model is not None:
+            import torch
+            from torch_geometric.data import Data
+            from torch_geometric.loader import DataLoader
+
+            self.model.eval()
+            data_list = [
+                Data(
+                    x=torch.tensor(g["node_features"], dtype=torch.float),
+                    edge_index=torch.tensor(g["edge_index"], dtype=torch.long),
+                )
+                for g in graphs
+            ]
+            loader = DataLoader(data_list, batch_size=32, shuffle=False)
+            preds = []
+            with torch.no_grad():
+                for batch in loader:
+                    preds.append(self.model(batch.x, batch.edge_index, batch.batch).numpy())
+            return np.concatenate(preds) if preds else np.array([])
+        else:
+            X = np.stack([
+                self._graph_to_features(g["node_features"], g["edge_index"])
+                for g in graphs
+            ])
+            Xs = self.scaler.transform(X)
+            return self.model.predict(Xs)
+
+    def predict_one(self, graph: dict) -> float:
+        return float(self.predict([graph])[0])
+
+
+def make_dummy_graphs(n: int = 20, node_dim: int = 8) -> tuple[list[dict], np.ndarray]:
+    """Create synthetic graph data for smoke-testing the GNN."""
+    rng = np.random.default_rng(42)
+    graphs, ys = [], []
+    for _ in range(n):
+        n_nodes = int(rng.integers(5, 20))
+        node_feats = rng.normal(size=(n_nodes, node_dim))
+        n_edges = int(rng.integers(n_nodes - 1, n_nodes * 2))
+        edge_index = rng.integers(0, n_nodes, size=(2, n_edges))
+        graphs.append({"node_features": node_feats, "edge_index": edge_index})
+        ys.append(float(rng.normal()))
+    return graphs, np.array(ys)

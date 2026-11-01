@@ -1,0 +1,31 @@
+# Pinned major versions for reproducibility (Python 3.11)
+pandas>=2.2.0,<3.0.0
+numpy>=1.26.0,<2.0.0
+scikit-learn>=1.4.0,<2.0.0
+xgboost>=2.0.0,<3.0.0
+shap>=0.44.0,<0.45.0
+optuna>=3.6.0,<4.0.0
+rdflib>=7.0.0,<8.0.0
+pyshacl>=0.8.0
+streamlit>=1.32.0,<2.0.0
+plotly>=5.18.0,<6.0.0
+matplotlib>=3.8.0,<4.0.0
+joblib>=1.3.0,<2.0.0
+pytest>=7.4.0,<8.0.0
+pyyaml>=6.0.1,<7.0.0
+networkx>=3.2.0,<4.0.0
+pyvis>=0.3.2,<0.4.0
+
+# Optional Phase 5 baseline (wrapped in try/except; project runs without it)
+# autogluon.tabular>=0.8,<1.0
+# h2o>=4.0,<5.0
+
+# Optional: Gap 3 - GNN models (torch + torch_geometric)
+# torch>=2.0.0,<3.0.0
+# torch-geometric>=2.3.0,<3.0.0
+
+# Optional: Gap 5 - VAE/GAN generative models (torch)
+# torch>=2.0.0,<3.0.0
+
+# Optional: Gap 6 - LIME explainability
+# lime>=2.3.0,<3.0.0
