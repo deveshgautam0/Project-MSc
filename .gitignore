@@ -26,6 +26,7 @@ dist/
 # Generated / runtime outputs (do not commit derived artifacts)
 data/processed/*.csv
 data/processed/*.md
+data/raw/user_data.csv
 models/*.joblib
 models/archive/
 reports/*.json
